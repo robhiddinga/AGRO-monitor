@@ -1,0 +1,117 @@
+-- create an account on
+-- https://agromonitoring.com/#agro-api
+-- draw a poygon
+-- enter your appid and name below
+-- create a moisture device and enter ID below
+-- create uservariable polygonID as string
+-- Set domoticz ip and port for DOMO_IP and DOMO_PORT
+--
+local agroControle       = "every 12 hours"
+local appId              = "<ENTER YOUR APPID>"
+local polygonName        = "<YOUR POLYGON NAME>"
+local soilIdx            = <ID of your moisture sensor>
+DOMO_IP                  = "<Domoticz IP>"   
+DOMO_PORT                = "<Domoticz port>" 
+
+return {
+	on = {
+		timer = {
+		    agroControle
+		},
+		httpResponses = {
+			'polygon', 'soil', 'uvi' -- must match with the callback passed to the openURL command in the code below
+		}
+	},
+	logging = {
+		level = domoticz.LOG_INFO,
+		marker = 'AGRO monitor',
+	},
+	execute = function(domoticz, item)
+	    
+ 	    if (item.isTimer) then
+	        -- section to launch the first API to get polygon
+	        local UrlStart='http://api.agromonitoring.com/agro/1.0/polygons?appid=' .. appId
+
+	        --domoticz.log(UrlStart)
+	        -- launch the URL
+			    domoticz.openURL({
+				    url = UrlStart,
+				    method = 'GET',
+				    callback = 'polygon', -- must match a httpResponses above
+			    })
+		else 
+		    if (item.isHTTPResponse) then
+		        -- response to openURL (HTTP GET) request was received
+		        domoticz.log(item.json)
+			    if (item.ok) then
+			       if (item.isJSON) then   -- should be JSON
+			          --domoticz.log('answer is json') 
+			          --domoticz.utils.dumpTable(item.json)  -- dumpTable can be used for debugging 
+			          
+			          if (item.trigger == 'polygon') then
+			             --domoticz.log('answer on polygon') 
+			             --ToDo: check all polygons and find the correct ID. I have only 1 polygon 
+			             polyName = item.json[1].name
+			             polyId   = item.json[1].id
+			             -- store ID for futher use
+			             domoticz.variables('polygonID').set(polyId)
+			             local soilUrl = 'http://api.agromonitoring.com/agro/1.0/soil?polyid=' ..polyId.. '&appid=' .. appId
+	                 --domoticz.log(soilUrl)
+	                 -- launch second URL
+			             domoticz.openURL({
+				            url = soilUrl,
+				            method = 'GET',
+				            callback = 'soil', -- must match a httpResponses above
+			             })			              
+		              end 
+		          
+			          if (item.trigger == 'soil') then
+			              --domoticz.log("soil answer")
+			              local timeOfSoilData     = item.json.dt
+			              local kelvinTemp10       = item.json.t10
+			              local CelciusTemp10      = tonumber(item.json.t10) - 273.15
+			              local soilMoisture       = item.json.moisture
+			              local KelvinTempSurface  = item.json.t0
+			              local CelciusTempSurface = tonumber(item.json.t0) - 273.15
+			              domoticz.log("soilMoisture " .. soilMoisture)
+			              domoticz.log("groundtemp at -10cm " .. CelciusTemp10)
+			              domoticz.log("groundtemp " .. CelciusTempSurface)
+			              -- status 0=Normal 1=Comfortable 2=Dry 3=Wet
+			              local soilHum = soilMoisture * 100 
+			              local soilStat = 1 -- Comfortable
+			              if tonumber(soilHum) < 50 then soilStat = 0 end -- normal
+			              if tonumber(soilHum) < 35 then soilStat = 2 end -- dry
+			              if tonumber(soilHum) > 79 then soilStat = 3 end -- wet
+			              local soil_url =  "/json.htm?type=command&param=udevice&idx="..soilIdx.."&nvalue="..soilHum.."&svalue="..soilStat
+			              local soilUpdate = 'http://'..DOMO_IP..':'..DOMO_PORT..soil_url
+                    --domoticz.log(soilUpdate)
+                    domoticz.openURL(soilUpdate)              
+			              
+			              local polyId = domoticz.variables('polygonID').value
+			              local uviUrl = 'http://api.agromonitoring.com/agro/1.0/uvi?polyid=' ..polyId.. '&appid=' .. appId
+	                  --domoticz.log(uviUrl)
+	                  -- launch next URL
+			              domoticz.openURL({
+				            url = uviUrl,
+				            method = 'GET',
+				            callback = 'uvi', -- must match a httpResponses above
+			             })
+			              
+			          end 
+			          if (item.trigger == 'uvi') then
+			              local timeOfUviData    = item.json.dt
+			              local uvIndex          = item.json.uvi
+			              domoticz.log("UV index " .. uvIndex)
+			          end     
+			          			          
+			       else
+				        domoticz.log('No JSON received from agromonitoring', domoticz.LOG_INFO)
+				   end
+			    else
+				    domoticz.log('There was a problem handling the AGRO monitoring request. Item not ok', domoticz.LOG_INFO)
+				    domoticz.log(item, domoticz.LOG_INFO)
+			    end
+		    end
+	    end
+    end
+}
