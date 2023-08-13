@@ -1,4 +1,4 @@
-# AGRO-monitor
+# AGRO-monitor Domoticz DZVENTS
 get agro data (uvi, soil moisture) from agromonitoring.com
 
 get an idea of the soil moisture in your garden
