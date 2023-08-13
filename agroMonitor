@@ -49,9 +49,16 @@ return {
 			          --domoticz.utils.dumpTable(item.json)  -- dumpTable can be used for debugging 
 			          
 			          if (item.trigger == 'polygon') then
-			             --ToDo: check all polygons and find the correct ID. I have only 1 polygon 
-			             polyName = item.json[1].name
-			             polyId   = item.json[1].id
+			             -- In case get polygon fails, initialize polyId with prior value
+			             polyId = domoticz.variables('polygonID').value
+			             local numberOfPolygon = #item.json
+			             --domoticz.log("numberOfPolygon "..numberOfPolygon)
+			             for id = 1, numberOfPolygon do
+			                if (item.json[id].name == polygonName) then
+			                 polyName = item.json[id].name
+			                 polyId   = item.json[id].id	
+			                end    
+			             end 
 			             -- store ID for futher use
 			             domoticz.variables('polygonID').set(polyId)
 			             local soilUrl = 'http://api.agromonitoring.com/agro/1.0/soil?polyid=' ..polyId.. '&appid=' .. appId
