@@ -1,6 +1,6 @@
 -- create an account on
 -- https://agromonitoring.com/#agro-api
--- draw a poygon
+-- draw a poygon (delete the example)
 -- enter your appid and name below
 -- create a moisture device and enter ID below
 -- create uservariable polygonID as string
@@ -34,30 +34,29 @@ return {
 
 	        --domoticz.log(UrlStart)
 	        -- launch the URL
-			    domoticz.openURL({
-				    url = UrlStart,
-				    method = 'GET',
-				    callback = 'polygon', -- must match a httpResponses above
-			    })
-		else 
+		domoticz.openURL({
+		    url = UrlStart,
+		    method = 'GET',
+		    callback = 'polygon', -- must match a httpResponses above
+		})
+	      else 
 		    if (item.isHTTPResponse) then
 		        -- response to openURL (HTTP GET) request was received
-		        domoticz.log(item.json)
+		        -- domoticz.log(item.json)
 			    if (item.ok) then
 			       if (item.isJSON) then   -- should be JSON
 			          --domoticz.log('answer is json') 
 			          --domoticz.utils.dumpTable(item.json)  -- dumpTable can be used for debugging 
 			          
 			          if (item.trigger == 'polygon') then
-			             --domoticz.log('answer on polygon') 
 			             --ToDo: check all polygons and find the correct ID. I have only 1 polygon 
 			             polyName = item.json[1].name
 			             polyId   = item.json[1].id
 			             -- store ID for futher use
 			             domoticz.variables('polygonID').set(polyId)
 			             local soilUrl = 'http://api.agromonitoring.com/agro/1.0/soil?polyid=' ..polyId.. '&appid=' .. appId
-	                 --domoticz.log(soilUrl)
-	                 -- launch second URL
+	                             --domoticz.log(soilUrl)
+	                             -- launch second URL
 			             domoticz.openURL({
 				            url = soilUrl,
 				            method = 'GET',
